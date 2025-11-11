@@ -6,6 +6,7 @@ import { OrbitControls, PerspectiveCamera, Center, Stage } from "@react-three/dr
 import { Button } from "@/components/ui/button"
 import { Download, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, ZoomIn, ZoomOut } from "lucide-react"
 import * as THREE from "three"
+import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 
 interface ModelViewerProps {
   imageUrl: string | null
@@ -545,10 +546,38 @@ export default function ModelViewer({ imageUrl }: ModelViewerProps) {
   const [rotation, setRotation] = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(2)
   const controlsRef = useRef<any>(null)
+  const modelGroupRef = useRef<THREE.Group>(null)
 
   const handleDownload = () => {
-    // In a real implementation, this would download the generated 3D model
-    alert("In a real implementation, this would download the 3D model file (GLB/OBJ).")
+    if (!modelGroupRef.current) {
+      alert("No 3D model available to download.")
+      return
+    }
+
+    const exporter = new GLTFExporter()
+
+    exporter.parse(
+      modelGroupRef.current,
+      (result) => {
+        const output = JSON.stringify(result, null, 2)
+        const blob = new Blob([output], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+
+        const link = document.createElement('a')
+        link.href = url
+        link.download = '3d-model.glb'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+
+        URL.revokeObjectURL(url)
+      },
+      (error) => {
+        console.error('Error exporting GLTF:', error)
+        alert('Failed to export the 3D model.')
+      },
+      { binary: true }
+    )
   }
 
   const handleRotateLeft = () => {
@@ -596,7 +625,7 @@ export default function ModelViewer({ imageUrl }: ModelViewerProps) {
             <spotLight position={[5, 5, 5]} angle={0.15} penumbra={1} intensity={1} castShadow />
             <pointLight position={[-5, -5, -5]} intensity={0.5} />
 
-            <group rotation={[rotation.x, rotation.y, 0]}>
+            <group ref={modelGroupRef} rotation={[rotation.x, rotation.y, 0]}>
               <Stage environment="studio" intensity={0.5} castShadow shadows>
                 {modelType === "realistic" && <RealisticModel imageUrl={imageUrl} />}
                 {modelType === "normal" && <NormalMappedModel imageUrl={imageUrl} />}
